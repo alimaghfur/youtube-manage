@@ -21,6 +21,7 @@ class GenerateRequest(BaseModel):
     language: str = "id"
     voice_engine: str = "edge-tts"
     duration_target: str = "medium"
+    orientation: str = "horizontal"  # horizontal (16:9) or vertical (9:16 Shorts)
 
 
 class GenerateResponse(BaseModel):
@@ -49,6 +50,7 @@ async def run_generation(video_id: int, request: GenerateRequest):
             language=request.language,
             voice_engine=request.voice_engine,
             duration_target=request.duration_target,
+            orientation=request.orientation,
             progress_callback=update_progress,
         )
     except Exception as e:

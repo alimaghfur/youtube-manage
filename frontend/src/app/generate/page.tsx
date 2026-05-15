@@ -10,6 +10,7 @@ export default function GenerateVideo() {
   const [language, setLanguage] = useState('id')
   const [voice, setVoice] = useState('edge-tts')
   const [duration, setDuration] = useState('medium')
+  const [orientation, setOrientation] = useState('horizontal')
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState('')
@@ -49,6 +50,7 @@ export default function GenerateVideo() {
         language,
         voice_engine: voice,
         duration_target: duration,
+        orientation,
       })
 
       const videoId = result.video_id
@@ -222,6 +224,40 @@ export default function GenerateVideo() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Video Format (Orientation) */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Video Format
+          </label>
+          <div className="flex gap-3">
+            {[
+              { id: 'horizontal', label: 'Horizontal', desc: '16:9 (YouTube)', icon: '📺' },
+              { id: 'vertical', label: 'Vertical', desc: '9:16 (Shorts)', icon: '📱' },
+            ].map((o) => (
+              <button
+                key={o.id}
+                onClick={() => {
+                  setOrientation(o.id)
+                  if (o.id === 'vertical' && duration !== 'short') setDuration('short')
+                }}
+                disabled={isGenerating}
+                className={`flex-1 py-3 px-4 rounded-lg text-center transition-all duration-200 ${
+                  orientation === o.id
+                    ? 'bg-primary-600 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                <span className="text-xl">{o.icon}</span>
+                <p className="font-semibold text-sm mt-1">{o.label}</p>
+                <p className={`text-xs mt-0.5 ${orientation === o.id ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'}`}>{o.desc}</p>
+              </button>
+            ))}
+          </div>
+          {orientation === 'vertical' && (
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">Shorts mode: max 60 seconds, vertical 9:16 format</p>
+          )}
         </div>
 
         {/* Generate Button */}

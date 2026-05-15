@@ -174,11 +174,16 @@ async def generate_image_leonardo(prompt: str, output_path: str) -> str:
     raise ValueError("Image generation timed out")
 
 
-async def generate_image_placeholder(prompt: str, output_path: str) -> str:
+async def generate_image_placeholder(prompt: str, output_path: str, orientation: str = "horizontal") -> str:
     """Generate a simple placeholder image using FFmpeg when no API key is available."""
+    # Resolution based on orientation
+    if orientation == "vertical":
+        resolution = "1080x1920"
+    else:
+        resolution = "1280x720"
+
     # Clean text for FFmpeg (remove special characters that break drawtext)
     short_prompt = prompt[:40] if len(prompt) > 40 else prompt
-    # Remove characters that cause FFmpeg issues
     safe_text = short_prompt.replace("'", "").replace('"', "").replace(":", " ").replace("\\", "").replace("%", "").replace(";", " ").replace("(", "").replace(")", "").replace("[", "").replace("]", "")
     safe_text = "".join(c for c in safe_text if c.isascii())
     if not safe_text.strip():
@@ -186,7 +191,7 @@ async def generate_image_placeholder(prompt: str, output_path: str) -> str:
 
     cmd = [
         "ffmpeg", "-y",
-        "-f", "lavfi", "-i", "color=c=0x1e3a5f:s=1280x720:d=1",
+        "-f", "lavfi", "-i", f"color=c=0x1e3a5f:s={resolution}:d=1",
         "-vf", f"drawtext=text='{safe_text}':fontsize=30:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2",
         "-frames:v", "1",
         output_path
@@ -194,10 +199,9 @@ async def generate_image_placeholder(prompt: str, output_path: str) -> str:
     try:
         await asyncio.to_thread(subprocess.run, cmd, capture_output=True, check=True)
     except subprocess.CalledProcessError:
-        # If drawtext still fails, create plain colored image without text
         cmd_simple = [
             "ffmpeg", "-y",
-            "-f", "lavfi", "-i", "color=c=0x1e3a5f:s=1280x720:d=1",
+            "-f", "lavfi", "-i", f"color=c=0x1e3a5f:s={resolution}:d=1",
             "-frames:v", "1",
             output_path
         ]
@@ -205,9 +209,15 @@ async def generate_image_placeholder(prompt: str, output_path: str) -> str:
     return output_path
 
 
-async def compose_video(images: list[str], audio_files: list[str], output_path: str) -> str:
+async def compose_video(images: list[str], audio_files: list[str], output_path: str, orientation: str = "horizontal") -> str:
     """Compose final video from images and audio using FFmpeg."""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # Resolution based on orientation
+    if orientation == "vertical":
+        scale_filter = "-vf scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+    else:
+        scale_filter = "-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2"
 
     # Get audio duration for each scene
     scenes_data = []
@@ -285,6 +295,7 @@ async def generate_video_pipeline(
     language: str,
     voice_engine: str,
     duration_target: str,
+    orientation: str = "horizontal",
     progress_callback=None,
 ) -> dict:
     """
@@ -432,9 +443,9 @@ async def generate_video_pipeline(
                 try:
                     await generate_image_leonardo(scene["image_prompt"], img_path)
                 except Exception:
-                    await generate_image_placeholder(scene["image_prompt"], img_path)
+                    await generate_image_placeholder(scene["image_prompt"], img_path, orientation)
             else:
-                await generate_image_placeholder(scene["image_prompt"], img_path)
+                await generate_image_placeholder(scene["image_prompt"], img_path, orientation)
             images.append(img_path)
 
         # Step 5: Compose video
@@ -442,7 +453,7 @@ async def generate_video_pipeline(
             await progress_callback(video_id, "generating", 75, "Composing video...")
 
         video_path = os.path.join(video_dir, "final_video.mp4")
-        await compose_video(images, audio_files, video_path)
+        await compose_video(images, audio_files, video_path, orientation)
 
         # Step 6: Humanize final video (Ken Burns, color, vignette)
         try:

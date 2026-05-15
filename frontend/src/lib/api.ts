@@ -24,6 +24,7 @@ export const startGeneration = (data: {
   language: string;
   voice_engine: string;
   duration_target: string;
+  orientation: string;
 }) => fetchAPI("/generate/", { method: "POST", body: JSON.stringify(data) });
 
 export const getProgress = (videoId: number) => fetchAPI(`/generate/progress/${videoId}`);
