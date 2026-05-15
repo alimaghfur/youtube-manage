@@ -15,7 +15,7 @@ async def call_gemini(api_key: str, prompt: str, max_retries: int = 2) -> str:
     client = genai.Client(api_key=api_key)
 
     # Models to try in order (lite has higher free quota)
-    models = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]
+    models = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
 
     last_error = None
 
