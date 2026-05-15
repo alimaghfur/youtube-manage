@@ -42,16 +42,20 @@ async def init_db() -> None:
                 title TEXT,
                 keyword TEXT,
                 niche TEXT,
-                video_type TEXT CHECK(video_type IN ('slideshow', 'text-screen', 'listicle')),
+                video_type TEXT,
                 language TEXT,
                 voice_engine TEXT,
-                duration_target TEXT CHECK(duration_target IN ('short', 'medium', 'long')),
+                duration_target TEXT,
                 script TEXT,
                 audio_path TEXT,
                 video_path TEXT,
                 thumbnail_path TEXT,
-                status TEXT CHECK(status IN ('generating', 'ready', 'uploaded', 'failed')),
+                status TEXT DEFAULT 'generating',
                 youtube_url TEXT,
+                seo_title TEXT,
+                seo_description TEXT,
+                seo_tags TEXT,
+                template_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 uploaded_at TIMESTAMP
             )
@@ -75,7 +79,46 @@ async def init_db() -> None:
                 video_id INTEGER REFERENCES videos(id),
                 scheduled_date TEXT,
                 scheduled_time TEXT,
-                status TEXT CHECK(status IN ('queued', 'uploading', 'uploaded', 'failed')),
+                status TEXT DEFAULT 'queued',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Templates table - Save reusable video generation templates
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                niche TEXT,
+                video_type TEXT,
+                language TEXT DEFAULT 'id',
+                voice_engine TEXT DEFAULT 'edge-tts',
+                duration_target TEXT DEFAULT 'medium',
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Notifications table - Store notification settings
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                webhook_url TEXT,
+                is_active INTEGER DEFAULT 1,
+                events TEXT DEFAULT '["generate_complete","upload_complete","error"]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Notification logs
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS notification_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                notification_id INTEGER REFERENCES notifications(id),
+                event TEXT,
+                message TEXT,
+                status TEXT DEFAULT 'sent',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
