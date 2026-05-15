@@ -1,10 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getSchedules, createSchedule, updateSchedule, deleteSchedule, getQueue, removeFromQueue } from '@/lib/api'
 
 export default function Scheduler() {
   const [scheduleTime, setScheduleTime] = useState('10:00')
   const [scheduleDays, setScheduleDays] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri'])
+  const [schedules, setSchedules] = useState<any[]>([])
+  const [queue, setQueue] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
 
   const days = [
     { id: 'mon', label: 'Mon' },
@@ -16,16 +22,66 @@ export default function Scheduler() {
     { id: 'sun', label: 'Sun' },
   ]
 
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      const [s, q] = await Promise.all([getSchedules(), getQueue()])
+      setSchedules(s.schedules || [])
+      setQueue(q.queue || [])
+      if (s.schedules && s.schedules.length > 0) {
+        setScheduleTime(s.schedules[0].upload_time)
+        setScheduleDays(s.schedules[0].days)
+      }
+    } catch (e) {
+      console.error('Failed to load scheduler data:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const toggleDay = (day: string) => {
     setScheduleDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     )
   }
 
-  const queueItems = [
-    { id: 1, title: 'Sample Video 1', date: '2026-05-16', time: '10:00', status: 'queued' },
-    { id: 2, title: 'Sample Video 2', date: '2026-05-17', time: '10:00', status: 'queued' },
-  ]
+  const handleSaveSchedule = async () => {
+    setSaving(true)
+    setMessage('')
+    try {
+      if (schedules.length > 0) {
+        await updateSchedule(schedules[0].id, { upload_time: scheduleTime, days: scheduleDays })
+      } else {
+        await createSchedule({ upload_time: scheduleTime, days: scheduleDays })
+      }
+      setMessage('Schedule saved!')
+      loadData()
+    } catch (e: any) {
+      setMessage(`Error: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRemoveFromQueue = async (id: number) => {
+    try {
+      await removeFromQueue(id)
+      loadData()
+    } catch (e) {
+      console.error('Failed to remove from queue:', e)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -35,6 +91,13 @@ export default function Scheduler() {
         <p className="text-gray-500 dark:text-gray-400 mt-1">Set automatic upload schedule for your videos</p>
       </div>
 
+      {/* Message */}
+      {message && (
+        <div className={`p-4 rounded-lg text-sm ${message.startsWith('Error') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'}`}>
+          {message}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Schedule Settings */}
         <div className="card p-6 space-y-6">
@@ -42,9 +105,7 @@ export default function Scheduler() {
 
           {/* Time */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Upload Time
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Upload Time</label>
             <input
               type="time"
               value={scheduleTime}
@@ -55,9 +116,7 @@ export default function Scheduler() {
 
           {/* Days */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Upload Days
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Upload Days</label>
             <div className="flex gap-2">
               {days.map((day) => (
                 <button
@@ -80,16 +139,13 @@ export default function Scheduler() {
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
               <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                Scheduler is active — Next upload: Tomorrow at {scheduleTime}
+                {schedules.length > 0 ? `Scheduler active — Uploads at ${scheduleTime}` : 'No schedule set'}
               </span>
             </div>
           </div>
 
-          <button className="btn-primary w-full justify-center">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Save Schedule
+          <button onClick={handleSaveSchedule} disabled={saving} className="btn-primary w-full justify-center">
+            {saving ? 'Saving...' : 'Save Schedule'}
           </button>
         </div>
 
@@ -98,13 +154,13 @@ export default function Scheduler() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Queue</h3>
             <span className="text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 px-2.5 py-1 rounded-full">
-              {queueItems.length} videos
+              {queue.length} videos
             </span>
           </div>
 
-          {queueItems.length > 0 ? (
+          {queue.length > 0 ? (
             <div className="space-y-3">
-              {queueItems.map((item) => (
+              {queue.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
@@ -113,13 +169,16 @@ export default function Scheduler() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">{item.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.date} at {item.time}</p>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{item.title || `Video #${item.video_id}`}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.scheduled_date} at {item.scheduled_time}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2.5 py-1 rounded-full capitalize">
-                    {item.status}
-                  </span>
+                  <button
+                    onClick={() => handleRemoveFromQueue(item.id)}
+                    className="text-red-500 hover:text-red-700 text-xs font-medium"
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
@@ -131,46 +190,9 @@ export default function Scheduler() {
                 </svg>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">No videos in queue</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Generate videos first, then add to queue</p>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Calendar View */}
-      <div className="card p-6">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Calendar View</h3>
-        <div className="grid grid-cols-7 gap-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 py-2">
-              {day}
-            </div>
-          ))}
-          {Array.from({ length: 35 }, (_, i) => {
-            const day = i - 3 // offset for starting day
-            const isToday = day === 15
-            const hasVideo = [16, 17, 19, 20, 21].includes(day)
-            return (
-              <div
-                key={i}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all ${
-                  day > 0 && day <= 31
-                    ? isToday
-                      ? 'bg-primary-600 text-white font-bold'
-                      : hasVideo
-                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-gray-900 dark:text-gray-100'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                    : 'text-gray-300 dark:text-gray-700'
-                }`}
-              >
-                {day > 0 && day <= 31 && (
-                  <>
-                    <span>{day}</span>
-                    {hasVideo && <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-0.5" />}
-                  </>
-                )}
-              </div>
-            )
-          })}
         </div>
       </div>
     </div>

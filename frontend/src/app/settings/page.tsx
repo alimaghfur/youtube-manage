@@ -1,14 +1,67 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getSettings, updateSettingsBulk, getApiHealth } from '@/lib/api'
 
 export default function Settings() {
   const [geminiKey, setGeminiKey] = useState('')
   const [elevenLabsKey, setElevenLabsKey] = useState('')
   const [leonardoKey, setLeonardoKey] = useState('')
   const [youtubeKey, setYoutubeKey] = useState('')
+  const [youtubeClientId, setYoutubeClientId] = useState('')
+  const [youtubeClientSecret, setYoutubeClientSecret] = useState('')
   const [defaultNiche, setDefaultNiche] = useState('')
   const [defaultLanguage, setDefaultLanguage] = useState('id')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [health, setHealth] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const [settings, h] = await Promise.all([getSettings(), getApiHealth()])
+      setGeminiKey(settings.gemini_api_key || '')
+      setElevenLabsKey(settings.elevenlabs_api_key || '')
+      setLeonardoKey(settings.leonardo_api_key || '')
+      setYoutubeKey(settings.youtube_api_key || '')
+      setYoutubeClientId(settings.youtube_client_id || '')
+      setYoutubeClientSecret(settings.youtube_client_secret || '')
+      setDefaultNiche(settings.default_niche || '')
+      setDefaultLanguage(settings.default_language || 'id')
+      setHealth(h)
+    } catch (e) {
+      console.error('Failed to load settings:', e)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setMessage('')
+    try {
+      const settings: Record<string, string> = {
+        gemini_api_key: geminiKey,
+        elevenlabs_api_key: elevenLabsKey,
+        leonardo_api_key: leonardoKey,
+        youtube_api_key: youtubeKey,
+        youtube_client_id: youtubeClientId,
+        youtube_client_secret: youtubeClientSecret,
+        default_niche: defaultNiche,
+        default_language: defaultLanguage,
+      }
+      await updateSettingsBulk(settings)
+      setMessage('Settings saved successfully!')
+      // Refresh health
+      const h = await getApiHealth()
+      setHealth(h)
+    } catch (e: any) {
+      setMessage(`Error: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const apiCards = [
     {
@@ -16,36 +69,32 @@ export default function Settings() {
       description: 'AI text generation for scripts & narration',
       key: geminiKey,
       setKey: setGeminiKey,
-      color: 'blue',
       icon: '🧠',
-      status: geminiKey ? 'connected' : 'not configured',
+      healthKey: 'gemini',
     },
     {
       name: 'ElevenLabs',
       description: 'Pro-quality text-to-speech voices',
       key: elevenLabsKey,
       setKey: setElevenLabsKey,
-      color: 'purple',
       icon: '🎙️',
-      status: elevenLabsKey ? 'connected' : 'not configured',
+      healthKey: 'elevenlabs',
     },
     {
       name: 'Leonardo AI',
       description: 'AI image generation for video visuals',
       key: leonardoKey,
       setKey: setLeonardoKey,
-      color: 'orange',
       icon: '🎨',
-      status: leonardoKey ? 'connected' : 'not configured',
+      healthKey: 'leonardo',
     },
     {
-      name: 'YouTube Data API',
+      name: 'YouTube API Key',
       description: 'Upload & manage videos on YouTube',
       key: youtubeKey,
       setKey: setYoutubeKey,
-      color: 'red',
       icon: '📺',
-      status: youtubeKey ? 'connected' : 'not configured',
+      healthKey: 'youtube',
     },
   ]
 
@@ -62,6 +111,13 @@ export default function Settings() {
         <p className="text-gray-500 dark:text-gray-400 mt-1">Configure your API keys and preferences</p>
       </div>
 
+      {/* Message */}
+      {message && (
+        <div className={`p-4 rounded-lg text-sm ${message.startsWith('Error') ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'}`}>
+          {message}
+        </div>
+      )}
+
       {/* API Keys Section */}
       <div className="space-y-4">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">API Keys</h2>
@@ -76,62 +132,72 @@ export default function Settings() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">{api.description}</p>
                   </div>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[api.status]}`}>
-                  {api.status}
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[health[api.healthKey] || 'not configured']}`}>
+                  {health[api.healthKey] || 'not configured'}
                 </span>
               </div>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={api.key}
-                  onChange={(e) => api.setKey(e.target.value)}
-                  placeholder="Enter API key..."
-                  className="input-field pr-10 text-sm"
-                />
-                <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-              </div>
+              <input
+                type="password"
+                value={api.key}
+                onChange={(e) => api.setKey(e.target.value)}
+                placeholder="Enter API key..."
+                className="input-field text-sm"
+              />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* YouTube OAuth */}
+      <div className="card p-6 space-y-4">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">YouTube OAuth Credentials</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Client ID</label>
+            <input
+              type="password"
+              value={youtubeClientId}
+              onChange={(e) => setYoutubeClientId(e.target.value)}
+              placeholder="YouTube Client ID..."
+              className="input-field text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Client Secret</label>
+            <input
+              type="password"
+              value={youtubeClientSecret}
+              onChange={(e) => setYoutubeClientSecret(e.target.value)}
+              placeholder="YouTube Client Secret..."
+              className="input-field text-sm"
+            />
+          </div>
         </div>
       </div>
 
       {/* Default Preferences */}
       <div className="card p-6 space-y-6">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Default Preferences</h2>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Default Niche
             </label>
-            <select
-              value={defaultNiche}
-              onChange={(e) => setDefaultNiche(e.target.value)}
-              className="select-field"
-            >
+            <select value={defaultNiche} onChange={(e) => setDefaultNiche(e.target.value)} className="select-field">
               <option value="">No default</option>
-              <option value="fakta">Fakta Unik</option>
-              <option value="edukasi">Edukasi</option>
-              <option value="teknologi">Teknologi</option>
-              <option value="motivasi">Motivasi</option>
-              <option value="sains">Sains</option>
-              <option value="sejarah">Sejarah</option>
+              <option value="Fakta Unik">Fakta Unik</option>
+              <option value="Edukasi">Edukasi</option>
+              <option value="Teknologi">Teknologi</option>
+              <option value="Motivasi">Motivasi</option>
+              <option value="Sains">Sains</option>
+              <option value="Sejarah">Sejarah</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Default Language
             </label>
-            <select
-              value={defaultLanguage}
-              onChange={(e) => setDefaultLanguage(e.target.value)}
-              className="select-field"
-            >
+            <select value={defaultLanguage} onChange={(e) => setDefaultLanguage(e.target.value)} className="select-field">
               <option value="id">Bahasa Indonesia</option>
               <option value="en">English</option>
             </select>
@@ -139,33 +205,20 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* YouTube Channel Info */}
-      <div className="card p-6 space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">YouTube Channel</h2>
-        <div className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-          <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-            <svg className="w-7 h-7 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/>
-              <path fill="white" d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-            </svg>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900 dark:text-white">Not Connected</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Connect your YouTube channel to enable uploads</p>
-          </div>
-          <button className="ml-auto btn-primary text-sm">
-            Connect
-          </button>
-        </div>
-      </div>
-
       {/* Save Button */}
       <div className="flex justify-end">
-        <button className="btn-primary px-8">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          Save Settings
+        <button onClick={handleSave} disabled={saving} className="btn-primary px-8">
+          {saving ? (
+            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+          {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
     </div>

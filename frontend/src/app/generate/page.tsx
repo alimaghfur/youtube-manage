@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { startGeneration, getProgress } from '@/lib/api'
 
 export default function GenerateVideo() {
   const [keyword, setKeyword] = useState('')
@@ -12,6 +13,9 @@ export default function GenerateVideo() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   const niches = [
     'Fakta Unik', 'Edukasi', 'Teknologi', 'Motivasi', 'Kesehatan',
@@ -24,30 +28,55 @@ export default function GenerateVideo() {
     { id: 'listicle', name: 'Fakta / Listicle', icon: '🎬', desc: 'Gambar + teks + narasi bergantian' },
   ]
 
-  const handleGenerate = () => {
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [])
+
+  const handleGenerate = async () => {
+    setError('')
+    setSuccess('')
     setIsGenerating(true)
     setProgress(0)
-    setCurrentStep('Generating script...')
-    // Simulation of progress
-    const steps = [
-      { step: 'Generating script...', progress: 20 },
-      { step: 'Creating audio narration...', progress: 40 },
-      { step: 'Generating images...', progress: 60 },
-      { step: 'Composing video...', progress: 80 },
-      { step: 'Finalizing...', progress: 100 },
-    ]
-    let i = 0
-    const interval = setInterval(() => {
-      if (i < steps.length) {
-        setCurrentStep(steps[i].step)
-        setProgress(steps[i].progress)
-        i++
-      } else {
-        clearInterval(interval)
-        setIsGenerating(false)
-        setCurrentStep('')
-      }
-    }, 2000)
+    setCurrentStep('Starting...')
+
+    try {
+      const result = await startGeneration({
+        keyword,
+        niche,
+        video_type: videoType,
+        language,
+        voice_engine: voice,
+        duration_target: duration,
+      })
+
+      const videoId = result.video_id
+
+      // Poll for progress
+      pollRef.current = setInterval(async () => {
+        try {
+          const prog = await getProgress(videoId)
+          setProgress(prog.progress)
+          setCurrentStep(prog.step)
+
+          if (prog.status === 'ready') {
+            clearInterval(pollRef.current!)
+            setIsGenerating(false)
+            setSuccess('Video generated successfully! Check your Library.')
+          } else if (prog.status === 'failed') {
+            clearInterval(pollRef.current!)
+            setIsGenerating(false)
+            setError(prog.step || 'Generation failed')
+          }
+        } catch (e) {
+          // Keep polling
+        }
+      }, 2000)
+    } catch (e: any) {
+      setIsGenerating(false)
+      setError(e.message || 'Failed to start generation')
+    }
   }
 
   return (
@@ -57,6 +86,18 @@ export default function GenerateVideo() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Generate Video</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">Create AI-powered video content automatically</p>
       </div>
+
+      {/* Error / Success messages */}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm">
+          {success}
+        </div>
+      )}
 
       {/* Form */}
       <div className="card p-8 space-y-6">
@@ -71,6 +112,7 @@ export default function GenerateVideo() {
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="e.g. 5 fakta unik tentang luar angkasa"
             className="input-field"
+            disabled={isGenerating}
           />
         </div>
 
@@ -84,6 +126,7 @@ export default function GenerateVideo() {
               <button
                 key={n}
                 onClick={() => setNiche(n)}
+                disabled={isGenerating}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   niche === n
                     ? 'bg-primary-600 text-white shadow-md'
@@ -106,6 +149,7 @@ export default function GenerateVideo() {
               <button
                 key={type.id}
                 onClick={() => setVideoType(type.id)}
+                disabled={isGenerating}
                 className={`p-4 rounded-xl border-2 text-left transition-all duration-200 ${
                   videoType === type.id
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 shadow-md'
@@ -130,6 +174,7 @@ export default function GenerateVideo() {
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               className="select-field"
+              disabled={isGenerating}
             >
               <option value="id">Bahasa Indonesia</option>
               <option value="en">English</option>
@@ -143,6 +188,7 @@ export default function GenerateVideo() {
               value={voice}
               onChange={(e) => setVoice(e.target.value)}
               className="select-field"
+              disabled={isGenerating}
             >
               <option value="edge-tts">Edge TTS (Free, Unlimited)</option>
               <option value="elevenlabs">ElevenLabs (Pro Quality, Limited)</option>
@@ -164,6 +210,7 @@ export default function GenerateVideo() {
               <button
                 key={d.id}
                 onClick={() => setDuration(d.id)}
+                disabled={isGenerating}
                 className={`flex-1 py-3 px-4 rounded-lg text-center transition-all duration-200 ${
                   duration === d.id
                     ? 'bg-primary-600 text-white shadow-md'
@@ -209,7 +256,7 @@ export default function GenerateVideo() {
 
         {/* Progress Bar */}
         {isGenerating && (
-          <div className="space-y-3 animate-in fade-in">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{currentStep}</span>
               <span className="text-sm font-bold text-primary-600 dark:text-primary-400">{progress}%</span>
