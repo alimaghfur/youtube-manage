@@ -30,7 +30,7 @@ export const getProgress = (videoId: number) => fetchAPI(`/generate/progress/${v
 
 // --- Library ---
 export const getVideos = (status?: string) =>
-  fetchAPI(`/library/${status ? `?status=${status}` : ""}`);
+  fetchAPI(status ? `/library/?status=${status}` : "/library/");
 export const getVideo = (id: number) => fetchAPI(`/library/${id}`);
 export const deleteVideo = (id: number) =>
   fetchAPI(`/library/${id}`, { method: "DELETE" });
