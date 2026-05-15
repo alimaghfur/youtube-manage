@@ -45,14 +45,13 @@ async def ab_test_titles(titles: list[str], niche: str, language: str = "id") ->
     api_key = await get_setting("gemini_api_key")
     if not api_key:
         return [{"title": t, "score": 70 - i * 5, "ctr_estimate": "medium", "reason": "AI not configured", "improvement": "Add Gemini API key"} for i, t in enumerate(titles)]
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
+    from google import genai
+    client = genai.Client(api_key=api_key)
     prompt = f"""Score these YouTube titles for CTR (0-100). Niche: {niche}.
 Titles: {json.dumps(titles)}
 Return JSON array sorted best to worst: [{{"title":"...","score":85,"ctr_estimate":"high","reason":"why","improvement":"suggestion"}}]
 Return ONLY JSON array."""
-    model = genai.GenerativeModel("gemini-pro")
-    response = await asyncio.to_thread(model.generate_content, prompt)
+    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
     text = response.text.strip()
     if text.startswith("```"): text = text.split("\n", 1)[1].rsplit("```", 1)[0]
     try: return json.loads(text)

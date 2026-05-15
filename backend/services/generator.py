@@ -33,8 +33,8 @@ async def generate_script(keyword: str, niche: str, language: str, duration_targ
     if not api_key:
         raise ValueError("Gemini API key not configured. Please set it in Settings.")
 
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
+    from google import genai
+    client = genai.Client(api_key=api_key)
 
     duration_map = {
         "short": "1 minute (about 150 words)",
@@ -69,9 +69,10 @@ Requirements:
 
 Return ONLY the JSON, no other text."""
 
-    model = genai.GenerativeModel("gemini-pro")
     response = await asyncio.to_thread(
-        model.generate_content, prompt
+        client.models.generate_content,
+        model="gemini-2.0-flash",
+        contents=prompt,
     )
 
     # Parse the response

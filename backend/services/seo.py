@@ -28,8 +28,8 @@ async def optimize_seo(keyword: str, niche: str, language: str = "id", title: st
         # Fallback: basic SEO without AI
         return generate_basic_seo(keyword, niche, language, title)
 
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
+    from google import genai
+    client = genai.Client(api_key=api_key)
 
     lang_text = "Bahasa Indonesia" if language == "id" else "English"
 
@@ -57,8 +57,11 @@ Return as JSON:
 
 Return ONLY the JSON, no other text."""
 
-    model = genai.GenerativeModel("gemini-pro")
-    response = await asyncio.to_thread(model.generate_content, prompt)
+    response = await asyncio.to_thread(
+        client.models.generate_content,
+        model="gemini-2.0-flash",
+        contents=prompt,
+    )
 
     text = response.text.strip()
     if text.startswith("```"):

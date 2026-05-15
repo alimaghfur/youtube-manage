@@ -115,8 +115,8 @@ async def regenerate_scene(request: RegenerateSceneRequest):
 
         current_scene = scenes[request.scene_index]
 
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
+        from google import genai
+        client = genai.Client(api_key=api_key)
 
         lang_text = "Bahasa Indonesia" if language == "id" else "English"
         prompt = f"""Regenerate this video scene for a {niche} video in {lang_text}.
@@ -127,8 +127,7 @@ Create a new version that is more engaging. Return JSON:
 
 Return ONLY the JSON."""
 
-        model = genai.GenerativeModel("gemini-pro")
-        response = await asyncio.to_thread(model.generate_content, prompt)
+        response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
         text = response.text.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0]

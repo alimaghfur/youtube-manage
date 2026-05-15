@@ -24,8 +24,8 @@ async def generate_content_plan(niche: str, language: str = "id", days: int = 30
     if not api_key:
         return generate_basic_plan(niche, language, days, videos_per_week)
 
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
+    from google import genai
+    client = genai.Client(api_key=api_key)
     lang_text = "Bahasa Indonesia" if language == "id" else "English"
     total_videos = (days // 7) * videos_per_week
 
@@ -38,8 +38,7 @@ Return JSON:
 
 Return ONLY JSON."""
 
-    model = genai.GenerativeModel("gemini-pro")
-    response = await asyncio.to_thread(model.generate_content, prompt)
+    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
     text = response.text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1].rsplit("```", 1)[0]
@@ -80,15 +79,14 @@ async def analyze_competitors(channel_urls: list[str], niche: str, language: str
     api_key = await get_setting("gemini_api_key")
     if not api_key:
         return {"error": "Gemini API key required"}
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
+    from google import genai
+    client = genai.Client(api_key=api_key)
     lang_text = "Bahasa Indonesia" if language == "id" else "English"
     prompt = f"""Analyze competitive landscape for "{niche}" niche. Language: {lang_text}.
 Competitors: {', '.join(channel_urls) if channel_urls else 'General'}
 Return JSON: {{"niche_overview":"...","content_gaps":["..."],"trending_formats":["..."],"title_patterns":["..."],"optimal_length":"...","growth_strategies":["..."],"differentiation_ideas":["..."],"keywords_to_target":["..."],"avoid":["..."]}}
 Return ONLY JSON."""
-    model = genai.GenerativeModel("gemini-pro")
-    response = await asyncio.to_thread(model.generate_content, prompt)
+    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
     text = response.text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1].rsplit("```", 1)[0]

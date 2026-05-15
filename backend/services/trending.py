@@ -161,8 +161,8 @@ async def get_trending_topics_ai(niche: str, language: str = "id", count: int = 
     if not api_key:
         return []
 
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
+    from google import genai
+    client = genai.Client(api_key=api_key)
 
     lang_text = "Bahasa Indonesia" if language == "id" else "English"
 
@@ -188,8 +188,11 @@ Return as JSON array:
 
 Return ONLY the JSON array, no other text."""
 
-    model = genai.GenerativeModel("gemini-pro")
-    response = await asyncio.to_thread(model.generate_content, prompt)
+    response = await asyncio.to_thread(
+        client.models.generate_content,
+        model="gemini-2.0-flash",
+        contents=prompt,
+    )
 
     text = response.text.strip()
     if text.startswith("```"):
