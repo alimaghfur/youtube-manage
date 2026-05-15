@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, get_db
-from routers import generate, settings, scheduler, library, upload, thumbnail, trending, seo, bulk, templates, notifications, script_editor, music, subtitles, planner, analytics
+from routers import generate, settings, scheduler, library, upload, thumbnail, trending, seo, bulk, templates, notifications, script_editor, music, subtitles, planner, analytics, growth, hashtags, remix
 
 
 @asynccontextmanager
@@ -56,6 +56,9 @@ app.include_router(music.router)
 app.include_router(subtitles.router)
 app.include_router(planner.router)
 app.include_router(analytics.router)
+app.include_router(growth.router)
+app.include_router(hashtags.router)
+app.include_router(remix.router)
 
 
 @app.get("/")
