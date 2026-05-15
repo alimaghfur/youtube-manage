@@ -5,6 +5,8 @@ import { getSettings, updateSettingsBulk, getApiHealth } from '@/lib/api'
 
 export default function Settings() {
   const [geminiKey, setGeminiKey] = useState('')
+  const [groqKey, setGroqKey] = useState('')
+  const [aiProvider, setAiProvider] = useState('auto')
   const [elevenLabsKey, setElevenLabsKey] = useState('')
   const [leonardoKey, setLeonardoKey] = useState('')
   const [youtubeKey, setYoutubeKey] = useState('')
@@ -26,6 +28,8 @@ export default function Settings() {
     try {
       const [settings, h] = await Promise.all([getSettings(), getApiHealth()])
       setGeminiKey(settings.gemini_api_key || '')
+      setGroqKey(settings.groq_api_key || '')
+      setAiProvider(settings.ai_provider || 'auto')
       setElevenLabsKey(settings.elevenlabs_api_key || '')
       setLeonardoKey(settings.leonardo_api_key || '')
       setYoutubeKey(settings.youtube_api_key || '')
@@ -47,6 +51,8 @@ export default function Settings() {
     try {
       const settings: Record<string, string> = {
         gemini_api_key: geminiKey,
+        groq_api_key: groqKey,
+        ai_provider: aiProvider,
         elevenlabs_api_key: elevenLabsKey,
         leonardo_api_key: leonardoKey,
         youtube_api_key: youtubeKey,
@@ -79,6 +85,16 @@ export default function Settings() {
       healthKey: 'gemini',
       link: 'https://aistudio.google.com/apikey',
       linkLabel: 'Get API Key',
+    },
+    {
+      name: 'Groq (Recommended)',
+      description: 'Free, fast AI - no rate limit issues',
+      key: groqKey,
+      setKey: setGroqKey,
+      icon: '⚡',
+      healthKey: 'groq',
+      link: 'https://console.groq.com/keys',
+      linkLabel: 'Get Free API Key',
     },
     {
       name: 'ElevenLabs',
@@ -212,7 +228,17 @@ export default function Settings() {
       {/* Default Preferences */}
       <div className="card p-6 space-y-6">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Default Preferences</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              AI Provider
+            </label>
+            <select value={aiProvider} onChange={(e) => setAiProvider(e.target.value)} className="select-field">
+              <option value="auto">Auto (Groq first, Gemini fallback)</option>
+              <option value="groq">Groq Only</option>
+              <option value="gemini">Gemini Only</option>
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Default Niche

@@ -17,6 +17,8 @@ class SettingUpdate(BaseModel):
 
 class SettingsResponse(BaseModel):
     gemini_api_key: str = ""
+    groq_api_key: str = ""
+    ai_provider: str = "auto"
     elevenlabs_api_key: str = ""
     leonardo_api_key: str = ""
     youtube_api_key: str = ""
@@ -38,7 +40,7 @@ async def get_settings():
 
         settings = {}
         api_key_fields = [
-            "gemini_api_key", "elevenlabs_api_key", "leonardo_api_key",
+            "gemini_api_key", "groq_api_key", "elevenlabs_api_key", "leonardo_api_key",
             "youtube_api_key", "youtube_client_id", "youtube_client_secret",
         ]
 
@@ -117,6 +119,7 @@ async def check_api_health():
 
         return {
             "gemini": "connected" if settings.get("gemini_api_key") else "not configured",
+            "groq": "connected" if settings.get("groq_api_key") else "not configured",
             "elevenlabs": "connected" if settings.get("elevenlabs_api_key") else "not configured",
             "leonardo": "connected" if settings.get("leonardo_api_key") else "not configured",
             "youtube": "connected" if settings.get("youtube_api_key") else "not configured",
