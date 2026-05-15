@@ -176,18 +176,32 @@ async def generate_image_leonardo(prompt: str, output_path: str) -> str:
 
 async def generate_image_placeholder(prompt: str, output_path: str) -> str:
     """Generate a simple placeholder image using FFmpeg when no API key is available."""
-    # Create a colored background with text using FFmpeg
-    short_prompt = prompt[:50] + "..." if len(prompt) > 50 else prompt
+    # Clean text for FFmpeg (remove special characters that break drawtext)
+    short_prompt = prompt[:40] if len(prompt) > 40 else prompt
+    # Remove characters that cause FFmpeg issues
+    safe_text = short_prompt.replace("'", "").replace('"', "").replace(":", " ").replace("\\", "").replace("%", "").replace(";", " ").replace("(", "").replace(")", "").replace("[", "").replace("]", "")
+    safe_text = "".join(c for c in safe_text if c.isascii())
+    if not safe_text.strip():
+        safe_text = "Video Scene"
+
     cmd = [
         "ffmpeg", "-y",
-        "-f", "lavfi", "-i", f"color=c=0x1e3a5f:s=1280x720:d=1",
-        "-vf", f"drawtext=text='{short_prompt}':fontsize=30:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2",
+        "-f", "lavfi", "-i", "color=c=0x1e3a5f:s=1280x720:d=1",
+        "-vf", f"drawtext=text='{safe_text}':fontsize=30:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2",
         "-frames:v", "1",
         output_path
     ]
-    await asyncio.to_thread(
-        subprocess.run, cmd, capture_output=True, check=True
-    )
+    try:
+        await asyncio.to_thread(subprocess.run, cmd, capture_output=True, check=True)
+    except subprocess.CalledProcessError:
+        # If drawtext still fails, create plain colored image without text
+        cmd_simple = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", "color=c=0x1e3a5f:s=1280x720:d=1",
+            "-frames:v", "1",
+            output_path
+        ]
+        await asyncio.to_thread(subprocess.run, cmd_simple, capture_output=True, check=True)
     return output_path
 
 
