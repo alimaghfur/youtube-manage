@@ -24,6 +24,8 @@ class SettingsResponse(BaseModel):
     youtube_client_secret: str = ""
     default_niche: str = ""
     default_language: str = "id"
+    humanize_preset: str = "natural"
+    compliance_enabled: str = "true"
 
 
 @router.get("/", response_model=SettingsResponse)

@@ -12,6 +12,8 @@ export default function Settings() {
   const [youtubeClientSecret, setYoutubeClientSecret] = useState('')
   const [defaultNiche, setDefaultNiche] = useState('')
   const [defaultLanguage, setDefaultLanguage] = useState('id')
+  const [humanizePreset, setHumanizePreset] = useState('natural')
+  const [complianceEnabled, setComplianceEnabled] = useState('true')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [health, setHealth] = useState<Record<string, string>>({})
@@ -31,6 +33,8 @@ export default function Settings() {
       setYoutubeClientSecret(settings.youtube_client_secret || '')
       setDefaultNiche(settings.default_niche || '')
       setDefaultLanguage(settings.default_language || 'id')
+      setHumanizePreset(settings.humanize_preset || 'natural')
+      setComplianceEnabled(settings.compliance_enabled || 'true')
       setHealth(h)
     } catch (e) {
       console.error('Failed to load settings:', e)
@@ -50,6 +54,8 @@ export default function Settings() {
         youtube_client_secret: youtubeClientSecret,
         default_niche: defaultNiche,
         default_language: defaultLanguage,
+        humanize_preset: humanizePreset,
+        compliance_enabled: complianceEnabled,
       }
       await updateSettingsBulk(settings)
       setMessage('Settings saved successfully!')
@@ -201,6 +207,69 @@ export default function Settings() {
               <option value="id">Bahasa Indonesia</option>
               <option value="en">English</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Humanization & YouTube Compliance */}
+      <div className="card p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Humanization & YouTube Compliance</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Make videos appear natural and follow YouTube guidelines</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Humanization Preset */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Humanization Level
+            </label>
+            <select value={humanizePreset} onChange={(e) => setHumanizePreset(e.target.value)} className="select-field">
+              <option value="natural">Natural (Recommended)</option>
+              <option value="subtle">Subtle (Minimal processing)</option>
+              <option value="heavy">Heavy (Maximum humanization)</option>
+              <option value="none">None (Raw AI output)</option>
+            </select>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              {humanizePreset === 'natural' && 'Balanced - adds voice variation, ambient noise, pauses, and visual effects'}
+              {humanizePreset === 'subtle' && 'Minimal - keeps AI quality but adds slight speed variation and pauses'}
+              {humanizePreset === 'heavy' && 'Maximum - sounds most like a real recording with cafe ambience'}
+              {humanizePreset === 'none' && 'No processing applied - raw AI-generated output'}
+            </p>
+          </div>
+
+          {/* YouTube Compliance */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              YouTube Compliance
+            </label>
+            <select value={complianceEnabled} onChange={(e) => setComplianceEnabled(e.target.value)} className="select-field">
+              <option value="true">Enabled (Recommended)</option>
+              <option value="false">Disabled</option>
+            </select>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              {complianceEnabled === 'true' ? 'Auto-adds AI disclosure, engagement hooks, timestamps, and content variation' : 'No compliance features applied - manage manually'}
+            </p>
+          </div>
+        </div>
+
+        {/* What humanization does */}
+        <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/10 dark:to-teal-900/10 border border-green-200 dark:border-green-800">
+          <p className="font-semibold text-green-800 dark:text-green-300 text-sm mb-3">What this does to your videos:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Voice speed variation (not robotic)</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Natural breathing pauses between scenes</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Subtle ambient room noise</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Ken Burns effect on images (subtle zoom/pan)</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Color temperature variation (like real camera)</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">AI disclosure auto-added (YouTube required)</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Engagement hooks (subscribe, like CTAs)</span></div>
+            <div className="flex items-start gap-2"><span className="text-green-500 text-sm">✓</span><span className="text-xs text-green-700 dark:text-green-400">Unique content variation (no repetitive patterns)</span></div>
           </div>
         </div>
       </div>

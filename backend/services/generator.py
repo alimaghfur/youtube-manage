@@ -297,6 +297,34 @@ async def generate_video_pipeline(
         script_json = await generate_script(keyword, niche, language, duration_target)
         script_data = json.loads(script_json)
 
+        # Apply YouTube compliance: engagement hooks + content variation
+        from services.youtube_compliance import (
+            inject_engagement_hooks, add_content_variation,
+            generate_compliant_description, generate_compliant_tags,
+        )
+
+        script_data = inject_engagement_hooks(script_data, language)
+        script_data = add_content_variation(script_data, video_id)
+
+        # Generate compliant description and tags
+        compliant_desc = generate_compliant_description(
+            title=script_data.get("title", keyword),
+            keyword=keyword,
+            niche=niche,
+            language=language,
+            tags=script_data.get("tags", []),
+            scenes=script_data.get("scenes", []),
+        )
+        compliant_tags = generate_compliant_tags(
+            keyword=keyword, niche=niche, language=language,
+            extra_tags=script_data.get("tags", []),
+        )
+
+        # Store compliant metadata back into script
+        script_data["description"] = compliant_desc
+        script_data["tags"] = compliant_tags
+        script_json = json.dumps(script_data, ensure_ascii=False)
+
         # Save script
         script_path = os.path.join(video_dir, "script.json")
         with open(script_path, "w") as f:
@@ -305,15 +333,15 @@ async def generate_video_pipeline(
         # Update DB with title and script
         db = await get_db()
         await db.execute(
-            "UPDATE videos SET title = ?, script = ? WHERE id = ?",
-            (script_data["title"], script_json, video_id)
+            "UPDATE videos SET title = ?, script = ?, seo_description = ?, seo_tags = ? WHERE id = ?",
+            (script_data["title"], script_json, compliant_desc, json.dumps(compliant_tags), video_id)
         )
         await db.commit()
         await db.close()
 
         # Step 2: Generate audio for each scene
         if progress_callback:
-            await progress_callback(video_id, "generating", 30, "Generating audio...")
+            await progress_callback(video_id, "generating", 25, "Generating audio...")
 
         audio_files = []
         for i, scene in enumerate(script_data["scenes"]):
@@ -324,9 +352,47 @@ async def generate_video_pipeline(
                 await generate_audio_edge_tts(scene["narration"], audio_path, language)
             audio_files.append(audio_path)
 
-        # Step 3: Generate images for each scene
+        # Step 3: Humanize audio (make TTS sound more natural)
         if progress_callback:
-            await progress_callback(video_id, "generating", 60, "Generating images...")
+            await progress_callback(video_id, "generating", 40, "Humanizing audio...")
+
+        from services.humanizer import (
+            humanize_audio, add_ambient_noise, add_natural_pauses,
+            humanize_video, get_humanization_presets
+        )
+
+        # Get humanization settings from database
+        humanize_preset = await get_setting("humanize_preset") or "natural"
+        presets = get_humanization_presets()
+        h_settings = presets.get(humanize_preset, presets["natural"])["settings"]
+
+        if humanize_preset != "none":
+            # Humanize each audio file
+            humanized_audio = []
+            for i, audio_path in enumerate(audio_files):
+                h_path = os.path.join(video_dir, f"audio_h_{i:03d}.mp3")
+                await humanize_audio(audio_path, h_path, h_settings)
+                humanized_audio.append(h_path)
+
+            # Add natural pauses between scenes
+            if h_settings.get("natural_pauses"):
+                humanized_audio = await add_natural_pauses(humanized_audio, video_dir)
+
+            # Add ambient noise to each audio
+            if h_settings.get("ambient_noise", "none") != "none":
+                ambient_audio = []
+                for i, h_path in enumerate(humanized_audio):
+                    amb_path = os.path.join(video_dir, f"audio_amb_{i:03d}.mp3")
+                    await add_ambient_noise(h_path, amb_path, h_settings["ambient_noise"])
+                    ambient_audio.append(amb_path)
+                audio_files = ambient_audio
+            else:
+                audio_files = humanized_audio
+        # else: keep original audio_files
+
+        # Step 4: Generate images for each scene
+        if progress_callback:
+            await progress_callback(video_id, "generating", 55, "Generating images...")
 
         images = []
         leonardo_key = await get_setting("leonardo_api_key")
@@ -341,14 +407,23 @@ async def generate_video_pipeline(
                 await generate_image_placeholder(scene["image_prompt"], img_path)
             images.append(img_path)
 
-        # Step 4: Compose video
+        # Step 5: Compose video
         if progress_callback:
-            await progress_callback(video_id, "generating", 80, "Composing video...")
+            await progress_callback(video_id, "generating", 75, "Composing video...")
 
         video_path = os.path.join(video_dir, "final_video.mp4")
         await compose_video(images, audio_files, video_path)
 
-        # Step 5: Update database
+        # Step 6: Humanize final video (Ken Burns, color, vignette)
+        if humanize_preset != "none" and h_settings.get("ken_burns") or h_settings.get("color_variation"):
+            if progress_callback:
+                await progress_callback(video_id, "generating", 90, "Applying humanization to video...")
+
+            humanized_video_path = os.path.join(video_dir, "final_humanized.mp4")
+            await humanize_video(video_path, humanized_video_path, h_settings)
+            video_path = humanized_video_path
+
+        # Step 7: Update database
         if progress_callback:
             await progress_callback(video_id, "ready", 100, "Complete!")
 
