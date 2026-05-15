@@ -73,28 +73,84 @@ async def get_trending_keywords(niche: str = "", language: str = "id", count: in
 
 async def get_youtube_suggestions(query: str, language: str = "id") -> list[str]:
     """Get YouTube autocomplete suggestions."""
-    url = "https://suggestqueries.google.com/complete/search"
-    params = {
-        "client": "youtube",
-        "q": query,
-        "hl": language,
-        "ds": "yt",
-    }
+    # Try multiple endpoints for reliability
+    endpoints = [
+        {
+            "url": "https://suggestqueries.google.com/complete/search",
+            "params": {"client": "firefox", "q": query, "hl": language, "ds": "yt"},
+        },
+        {
+            "url": "https://clients1.google.com/complete/search",
+            "params": {"client": "youtube", "q": query, "hl": language, "ds": "yt", "gs_ri": "youtube"},
+        },
+    ]
 
-    response = await asyncio.to_thread(requests.get, url, params=params)
-    if response.status_code != 200:
-        return []
+    for endpoint in endpoints:
+        try:
+            response = await asyncio.to_thread(
+                requests.get,
+                endpoint["url"],
+                params=endpoint["params"],
+                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+                timeout=10,
+            )
+            if response.status_code != 200:
+                continue
 
-    # Parse JSONP response
-    text = response.text
-    try:
-        # Response format: window.google.ac.h(["query",[["suggestion1"],["suggestion2"],...]])
-        start = text.index("[")
-        data = json.loads(text[start:])
-        suggestions = [item[0] for item in data[1]]
-        return suggestions
-    except (ValueError, IndexError, json.JSONDecodeError):
-        return []
+            text = response.text
+
+            # Try parsing as JSON first (firefox client returns pure JSON)
+            try:
+                data = json.loads(text)
+                if isinstance(data, list) and len(data) > 1:
+                    suggestions = []
+                    for item in data[1]:
+                        if isinstance(item, str):
+                            suggestions.append(item)
+                        elif isinstance(item, list) and len(item) > 0:
+                            suggestions.append(item[0] if isinstance(item[0], str) else str(item[0]))
+                    return suggestions
+            except json.JSONDecodeError:
+                pass
+
+            # Try JSONP parsing
+            try:
+                start = text.index("(") + 1
+                end = text.rindex(")")
+                data = json.loads(text[start:end])
+                if isinstance(data, list) and len(data) > 1:
+                    suggestions = []
+                    for item in data[1]:
+                        if isinstance(item, str):
+                            suggestions.append(item)
+                        elif isinstance(item, list) and len(item) > 0:
+                            suggestions.append(item[0] if isinstance(item[0], str) else str(item[0]))
+                    return suggestions
+            except (ValueError, IndexError, json.JSONDecodeError):
+                pass
+
+        except Exception:
+            continue
+
+    # Fallback: generate suggestions locally based on niche
+    return generate_fallback_suggestions(query, language)
+
+
+def generate_fallback_suggestions(query: str, language: str) -> list[str]:
+    """Generate fallback suggestions when API fails."""
+    if language == "id":
+        suffixes = [
+            "terbaru 2026", "yang jarang diketahui", "fakta menarik",
+            "tips dan trik", "untuk pemula", "paling viral",
+            "yang wajib diketahui", "ternyata", "rahasia",
+        ]
+    else:
+        suffixes = [
+            "2026", "you didn't know", "facts",
+            "tips and tricks", "for beginners", "most viral",
+            "everyone should know", "actually", "secrets",
+        ]
+    return [f"{query} {s}" for s in suffixes[:5]]
 
 
 async def get_trending_topics_ai(niche: str, language: str = "id", count: int = 10) -> list[dict]:
