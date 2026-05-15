@@ -38,8 +38,9 @@ Return JSON:
 
 Return ONLY JSON."""
 
-    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
-    text = response.text.strip()
+    from services.gemini_helper import call_gemini
+    text = await call_gemini(api_key, prompt)
+    text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1].rsplit("```", 1)[0]
     try:
@@ -86,8 +87,9 @@ async def analyze_competitors(channel_urls: list[str], niche: str, language: str
 Competitors: {', '.join(channel_urls) if channel_urls else 'General'}
 Return JSON: {{"niche_overview":"...","content_gaps":["..."],"trending_formats":["..."],"title_patterns":["..."],"optimal_length":"...","growth_strategies":["..."],"differentiation_ideas":["..."],"keywords_to_target":["..."],"avoid":["..."]}}
 Return ONLY JSON."""
-    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
-    text = response.text.strip()
+    from services.gemini_helper import call_gemini
+    text = await call_gemini(api_key, prompt)
+    text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1].rsplit("```", 1)[0]
     try:

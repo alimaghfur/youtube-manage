@@ -51,8 +51,9 @@ async def ab_test_titles(titles: list[str], niche: str, language: str = "id") ->
 Titles: {json.dumps(titles)}
 Return JSON array sorted best to worst: [{{"title":"...","score":85,"ctr_estimate":"high","reason":"why","improvement":"suggestion"}}]
 Return ONLY JSON array."""
-    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
-    text = response.text.strip()
+    from services.gemini_helper import call_gemini
+    text = await call_gemini(api_key, prompt)
+    text = text.strip()
     if text.startswith("```"): text = text.split("\n", 1)[1].rsplit("```", 1)[0]
     try: return json.loads(text)
     except: return [{"title": t, "score": 50, "reason": "Parse error"} for t in titles]

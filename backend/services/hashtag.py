@@ -23,8 +23,9 @@ async def generate_hashtags(keyword: str, niche: str, language: str = "id", coun
     prompt = f"""Generate optimized YouTube hashtags for: "{keyword}" in {niche} niche ({lang_text}).
 Return JSON: {{"primary":["#tag1"],"secondary":["#tag2"],"trending":["#tag3"],"niche_specific":["#tag4"],"long_tail":["#tag5"],"total_count":30,"tips":["tip"],"best_combination":"#t1 #t2 #t3"}}
 Primary=5 high-volume, Secondary=8, Trending=7, Niche=5, LongTail=5. Return ONLY JSON."""
-    response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
-    text = response.text.strip()
+    from services.gemini_helper import call_gemini
+    text = await call_gemini(api_key, prompt)
+    text = text.strip()
     if text.startswith("```"): text = text.split("\n", 1)[1].rsplit("```", 1)[0]
     try: return json.loads(text)
     except: return generate_fallback_hashtags(keyword, niche, language, count)

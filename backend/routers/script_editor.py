@@ -127,8 +127,9 @@ Create a new version that is more engaging. Return JSON:
 
 Return ONLY the JSON."""
 
-        response = await asyncio.to_thread(client.models.generate_content, model="gemini-2.0-flash", contents=prompt)
-        text = response.text.strip()
+        from services.gemini_helper import call_gemini
+        text = await call_gemini(api_key, prompt)
+        text = text.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0]
 
