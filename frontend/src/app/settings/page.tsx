@@ -77,6 +77,8 @@ export default function Settings() {
       setKey: setGeminiKey,
       icon: '🧠',
       healthKey: 'gemini',
+      link: 'https://aistudio.google.com/apikey',
+      linkLabel: 'Get API Key',
     },
     {
       name: 'ElevenLabs',
@@ -85,6 +87,8 @@ export default function Settings() {
       setKey: setElevenLabsKey,
       icon: '🎙️',
       healthKey: 'elevenlabs',
+      link: 'https://elevenlabs.io/app/settings/api-keys',
+      linkLabel: 'Get API Key',
     },
     {
       name: 'Leonardo AI',
@@ -93,6 +97,8 @@ export default function Settings() {
       setKey: setLeonardoKey,
       icon: '🎨',
       healthKey: 'leonardo',
+      link: 'https://app.leonardo.ai/api-access',
+      linkLabel: 'Get API Key',
     },
     {
       name: 'YouTube API Key',
@@ -101,6 +107,8 @@ export default function Settings() {
       setKey: setYoutubeKey,
       icon: '📺',
       healthKey: 'youtube',
+      link: 'https://console.cloud.google.com/apis/credentials',
+      linkLabel: 'Google Cloud Console',
     },
   ]
 
@@ -149,6 +157,15 @@ export default function Settings() {
                 placeholder="Enter API key..."
                 className="input-field text-sm"
               />
+              <a
+                href={api.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                {api.linkLabel}
+              </a>
             </div>
           ))}
         </div>
@@ -156,7 +173,18 @@ export default function Settings() {
 
       {/* YouTube OAuth */}
       <div className="card p-6 space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">YouTube OAuth Credentials</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">YouTube OAuth Credentials</h2>
+          <a
+            href="https://console.cloud.google.com/apis/credentials"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            Google Cloud Console
+          </a>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Client ID</label>
