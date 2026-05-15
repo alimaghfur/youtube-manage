@@ -332,10 +332,17 @@ async def generate_video_pipeline(
 
         # Update DB with title and script
         db = await get_db()
-        await db.execute(
-            "UPDATE videos SET title = ?, script = ?, seo_description = ?, seo_tags = ? WHERE id = ?",
-            (script_data["title"], script_json, compliant_desc, json.dumps(compliant_tags), video_id)
-        )
+        try:
+            await db.execute(
+                "UPDATE videos SET title = ?, script = ?, seo_description = ?, seo_tags = ? WHERE id = ?",
+                (script_data["title"], script_json, compliant_desc, json.dumps(compliant_tags), video_id)
+            )
+        except Exception:
+            # Fallback if seo columns don't exist yet
+            await db.execute(
+                "UPDATE videos SET title = ?, script = ? WHERE id = ?",
+                (script_data["title"], script_json, video_id)
+            )
         await db.commit()
         await db.close()
 
@@ -356,39 +363,54 @@ async def generate_video_pipeline(
         if progress_callback:
             await progress_callback(video_id, "generating", 40, "Humanizing audio...")
 
-        from services.humanizer import (
-            humanize_audio, add_ambient_noise, add_natural_pauses,
-            humanize_video, get_humanization_presets
-        )
+        humanize_preset = "none"
+        h_settings = {}
 
-        # Get humanization settings from database
-        humanize_preset = await get_setting("humanize_preset") or "natural"
-        presets = get_humanization_presets()
-        h_settings = presets.get(humanize_preset, presets["natural"])["settings"]
+        try:
+            from services.humanizer import (
+                humanize_audio, add_ambient_noise, add_natural_pauses,
+                humanize_video, get_humanization_presets
+            )
 
-        if humanize_preset != "none":
-            # Humanize each audio file
-            humanized_audio = []
-            for i, audio_path in enumerate(audio_files):
-                h_path = os.path.join(video_dir, f"audio_h_{i:03d}.mp3")
-                await humanize_audio(audio_path, h_path, h_settings)
-                humanized_audio.append(h_path)
+            # Get humanization settings from database
+            humanize_preset = await get_setting("humanize_preset") or "natural"
+            presets = get_humanization_presets()
+            h_settings = presets.get(humanize_preset, presets["natural"])["settings"]
 
-            # Add natural pauses between scenes
-            if h_settings.get("natural_pauses"):
-                humanized_audio = await add_natural_pauses(humanized_audio, video_dir)
+            if humanize_preset != "none":
+                # Humanize each audio file
+                humanized_audio = []
+                for i, audio_path in enumerate(audio_files):
+                    h_path = os.path.join(video_dir, f"audio_h_{i:03d}.mp3")
+                    try:
+                        await humanize_audio(audio_path, h_path, h_settings)
+                        humanized_audio.append(h_path)
+                    except Exception:
+                        humanized_audio.append(audio_path)
 
-            # Add ambient noise to each audio
-            if h_settings.get("ambient_noise", "none") != "none":
-                ambient_audio = []
-                for i, h_path in enumerate(humanized_audio):
-                    amb_path = os.path.join(video_dir, f"audio_amb_{i:03d}.mp3")
-                    await add_ambient_noise(h_path, amb_path, h_settings["ambient_noise"])
-                    ambient_audio.append(amb_path)
-                audio_files = ambient_audio
-            else:
-                audio_files = humanized_audio
-        # else: keep original audio_files
+                # Add natural pauses between scenes
+                if h_settings.get("natural_pauses"):
+                    try:
+                        humanized_audio = await add_natural_pauses(humanized_audio, video_dir)
+                    except Exception:
+                        pass
+
+                # Add ambient noise to each audio
+                if h_settings.get("ambient_noise", "none") != "none":
+                    ambient_audio = []
+                    for i, h_path in enumerate(humanized_audio):
+                        amb_path = os.path.join(video_dir, f"audio_amb_{i:03d}.mp3")
+                        try:
+                            await add_ambient_noise(h_path, amb_path, h_settings["ambient_noise"])
+                            ambient_audio.append(amb_path)
+                        except Exception:
+                            ambient_audio.append(h_path)
+                    audio_files = ambient_audio
+                else:
+                    audio_files = humanized_audio
+        except Exception:
+            # If humanization fails completely, continue with original audio
+            pass
 
         # Step 4: Generate images for each scene
         if progress_callback:
@@ -415,13 +437,18 @@ async def generate_video_pipeline(
         await compose_video(images, audio_files, video_path)
 
         # Step 6: Humanize final video (Ken Burns, color, vignette)
-        if humanize_preset != "none" and h_settings.get("ken_burns") or h_settings.get("color_variation"):
-            if progress_callback:
-                await progress_callback(video_id, "generating", 90, "Applying humanization to video...")
+        try:
+            if humanize_preset != "none" and (h_settings.get("ken_burns") or h_settings.get("color_variation")):
+                if progress_callback:
+                    await progress_callback(video_id, "generating", 90, "Applying humanization to video...")
 
-            humanized_video_path = os.path.join(video_dir, "final_humanized.mp4")
-            await humanize_video(video_path, humanized_video_path, h_settings)
-            video_path = humanized_video_path
+                humanized_video_path = os.path.join(video_dir, "final_humanized.mp4")
+                await humanize_video(video_path, humanized_video_path, h_settings)
+                if os.path.exists(humanized_video_path) and os.path.getsize(humanized_video_path) > 0:
+                    video_path = humanized_video_path
+        except Exception:
+            # If video humanization fails, use original video
+            pass
 
         # Step 7: Update database
         if progress_callback:
